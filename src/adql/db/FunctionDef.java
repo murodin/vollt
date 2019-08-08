@@ -160,6 +160,25 @@ public class FunctionDef implements Comparable<FunctionDef> {
 	 */
 	private Class<? extends UserDefinedFunction> udfClass = null;
 
+	/** SQL expression in which this UDF should be translated.
+	 * <p>
+	 * 	This expression is a template. It should be a valid SQL expression
+	 * 	compatible with the target DBMS. All parameters provided in ADQL must
+	 * 	be referred with a dollar sign followed by the index of the parameter
+	 * 	in the ADQL expression (starting from 1).
+	 * </p>
+	 * <p><i>
+	 * 	See {@link #setSQLTranslationTemplate(String)} for more details and an
+	 * 	example.
+	 * </i></p>
+	 * <p><i><b>Note:</b>
+	 * 	If NULL and that no UDF class is set, the SQL translation will be the
+	 * 	same as in ADQL (see
+	 * 	{@link DefaultUDF#translate(adql.translator.ADQLTranslator)}).
+	 * </i></p>
+	 * @since 2.0 */
+	private String sqlTranslationTemplate = null;
+
 	/**
 	 * Definition of a function parameter.
 	 *
@@ -525,6 +544,93 @@ public class FunctionDef implements Comparable<FunctionDef> {
 			throw new IllegalArgumentException("A security problem occurred while trying to get constructor from the class " + udfClass.getName() + ": " + e.getMessage());
 		} catch(NoSuchMethodException e) {
 			throw new IllegalArgumentException("The given class (" + udfClass.getName() + ") does not provide any constructor with a single parameter of type ADQLOperand[]!");
+		}
+	}
+
+	/**
+	 * Get the expression template to use when translating the defined UDF
+	 * into SQL.
+	 *
+	 * <p>
+	 * 	The given template is a <em>standard SQL expression</em> completely
+	 * 	<em>compatible with the used DBMS</em>. Parameters provided in the ADQL
+	 * 	version are referred using <code>$$</code> following by the parameter
+	 * 	index (started at 1). For instance: <code>left($$2, $$1)</code>.
+	 * </p>
+	 *
+	 * @return	The SQL translation template.
+	 *
+	 * @since 2.0
+	 */
+	public final String getSQLTranslationTemplate() {
+		return sqlTranslationTemplate;
+	}
+
+	/**
+	 * Set the expression template to use when translating the defined UDF
+	 * into SQL.
+	 *
+	 * <p><b>IMPORTANT note:</b>
+	 * 	If a UDF class is already set (cf {@link #setUDFClass(Class)}), the
+	 * 	SQL translation template provided here might be ignored. This template
+	 * 	expression is generally used by
+	 * 	{@link DefaultUDF#translate(adql.translator.ADQLTranslator)}.
+	 * </p>
+	 *
+	 * <p>
+	 * 	The given template must be a <em>standard SQL expression</em> completely
+	 * 	<em>compatible with the used DBMS</em>.
+	 * </p>
+	 *
+	 * <p>
+	 * 	To refer to the i-th parameter, write <code>$$i</code>, where
+	 * 	<code>i</code> is between [ 1 ; {@link #nbParams} ].
+	 * </p>
+	 *
+	 * <i>
+	 * <p><b>Example:</b>
+	 * 	To translate the following ADQL function:
+	 * </p>
+	 * <pre>keep_from_left(INT nbchars, VARCHAR string) -&gt; VARCHAR</pre>
+	 * <p>
+	 * 	into PostgreSQL's function <code>left(str text, n int)</code>, the
+	 * 	template expression should be:
+	 * </p>
+	 * <pre>left($$2, $$1)</pre>
+	 * </i>
+	 *
+	 * @param sqlTemplate	The SQL translation template to use.
+	 *
+	 * @throws IllegalArgumentException	If the number of different used
+	 *                                 	parameter is greater than the number of
+	 *                                 	parameters provided in ADQL.
+	 *
+	 * @since 2.0
+	 */
+	public final void setSQLTranslationTemplate(final String sqlTemplate) throws IllegalArgumentException {
+		// Reset the template if none is provided:
+		if (sqlTemplate == null || sqlTemplate.trim().isEmpty())
+			sqlTranslationTemplate = null;
+
+		// Otherwise...
+		else {
+			// ...check the number of different used parameters:
+			Pattern p = Pattern.compile("\\$\\$([0-9]*)");
+			Matcher m = p.matcher(sqlTemplate);
+			int min = Integer.MAX_VALUE, max = 0;
+			while(m.find()) {
+				min = Math.min(min, Integer.parseInt(m.group(1)));
+				max = Math.max(max, Integer.parseInt(m.group(1)));
+			}
+			if (min <= 0 || max > nbParams) {
+				if (nbParams == 0)
+					throw new IllegalArgumentException("Invalid parameter index: '$$" + (min <= 0 ? min : max) + "'! This UDF has no parameter.");
+				else
+					throw new IllegalArgumentException("Invalid parameter index: '$$" + (min <= 0 ? min : max) + "'! A parameter index should be a positive integer value between [ 1 ; " + nbParams + " ].");
+			}
+
+			// and if ok, keep this template:
+			sqlTranslationTemplate = sqlTemplate.trim();
 		}
 	}
 

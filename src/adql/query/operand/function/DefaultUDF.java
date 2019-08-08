@@ -238,15 +238,38 @@ public final class DefaultUDF extends UserDefinedFunction {
 
 	@Override
 	public String translate(final ADQLTranslator caller) throws TranslationException {
-		StringBuffer sql = new StringBuffer(functionName);
-		sql.append('(');
-		for(int i = 0; i < parameters.size(); i++) {
-			if (i > 0)
-				sql.append(',').append(' ');
-			sql.append(caller.translate(parameters.get(i)));
+
+		/* IF AN SQL TEMPLATE IS PROVIDED, use it to build the corresponding SQL
+		 * translation: */
+		if (definition != null && definition.getSQLTranslationTemplate() != null) {
+
+			// get the template:
+			String sql = definition.getSQLTranslationTemplate();
+
+			// Replace all parameters:
+			/* NOTE: loop over parameters BACKWARD to avoid interpreting,
+			 *       for instance, '$$13' as '$$1' followed by a '3': */
+			for(int i = definition.nbParams; i >= 1; i--)
+				sql = sql.replaceAll("\\$\\$" + i, caller.translate(getParameter(i - 1)));
+
+			// finally return the result:
+			return sql;
+
 		}
-		sql.append(')');
-		return sql.toString();
+		// OTHERWISE, return the default SQL translation (i.e. same as in ADQL):
+		else {
+
+			StringBuffer sql = new StringBuffer(functionName);
+			sql.append('(');
+			for(int i = 0; i < parameters.size(); i++) {
+				if (i > 0)
+					sql.append(',').append(' ');
+				sql.append(caller.translate(parameters.get(i)));
+			}
+			sql.append(')');
+			return sql.toString();
+
+		}
 	}
 
 }

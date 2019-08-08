@@ -2,6 +2,7 @@ package adql.db;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -511,6 +512,76 @@ public class TestFunctionDef {
 					fail("New ADQL Version not yet taken into account in this JUnit Test!");
 			}
 		}
+	}
+
+	@Test
+	public void testSetSQLTranslationTemplate() {
+		try {
+			// Function with no parameter:
+			FunctionDef def = new FunctionDef("foo");
+			assertNull(def.getSQLTranslationTemplate());
+
+			// TEST: no template => still no template
+			String[] templates = new String[]{ null, "", " ", "	", "\t" };
+			for(String temp : templates) {
+				def.setSQLTranslationTemplate(temp);
+				assertNull(def.getSQLTranslationTemplate());
+			}
+
+			// TEST: simple translation (no param ref) => OK
+			def.setSQLTranslationTemplate("bar()");
+			assertEquals("bar()", def.getSQLTranslationTemplate());
+
+			// TEST: set to NULL to remove template => OK
+			def.setSQLTranslationTemplate(null);
+			assertNull(def.getSQLTranslationTemplate());
+
+			// TEST: set to an empty string => same effect
+			def.setSQLTranslationTemplate("bar()");
+			assertEquals("bar()", def.getSQLTranslationTemplate());
+			def.setSQLTranslationTemplate("");
+			assertNull(def.getSQLTranslationTemplate());
+
+			// TEST: try to reference inexistant param => ERROR!
+			try {
+				def.setSQLTranslationTemplate("bar($$1)");
+				fail("There is no parameter to reference. This should not pass!");
+			} catch(Exception ex) {
+				assertEquals(IllegalArgumentException.class, ex.getClass());
+				assertEquals("Invalid parameter index: '$$1'! This UDF has no parameter.", ex.getMessage());
+			}
+
+			// Set some parameter:
+			def = FunctionDef.parse("foo(truc VARCHAR, bidule INT) -> SMALLINT");
+			assertNull(def.getSQLTranslationTemplate());
+
+			// TEST: param index too small => ERROR!
+			try {
+				def.setSQLTranslationTemplate("bar($$0)");
+				fail("Incorrect index ; it should start from 1. This should not pass!");
+			} catch(Exception ex) {
+				assertEquals(IllegalArgumentException.class, ex.getClass());
+				assertEquals("Invalid parameter index: '$$0'! A parameter index should be a positive integer value between [ 1 ; " + 2 + " ].", ex.getMessage());
+			}
+
+			// TEST: param index too big => ERROR!
+			try {
+				def.setSQLTranslationTemplate("bar($$10)");
+				fail("Incorrect index ; it should start from 1. This should not pass!");
+			} catch(Exception ex) {
+				assertEquals(IllegalArgumentException.class, ex.getClass());
+				assertEquals("Invalid parameter index: '$$10'! A parameter index should be a positive integer value between [ 1 ; " + 2 + " ].", ex.getMessage());
+			}
+
+			// TEST: correct param index => OK
+			def.setSQLTranslationTemplate("bar($$1)");
+			assertEquals("bar($$1)", def.getSQLTranslationTemplate());
+
+		} catch(ParseException ex) {
+			ex.printStackTrace();
+			fail("Failed initialization because of an invalid UDF name! (see console for more details)");
+		}
+
 	}
 
 }
