@@ -26,9 +26,8 @@ import java.io.OutputStream;
 import javax.servlet.http.HttpServletResponse;
 
 import adql.parser.ADQLParser;
-import adql.parser.ADQLParserFactory;
 import adql.parser.ADQLQueryFactory;
-import adql.parser.ParseException;
+import adql.parser.grammar.ParseException;
 import adql.query.ADQLQuery;
 import tap.data.DataReadException;
 import tap.data.TableIterator;
@@ -106,7 +105,7 @@ import uws.service.log.UWSLog.LogLevel;
  * </p>
  *
  * @author Gr&eacute;gory Mantelet (CDS;ARI)
- * @version 3.0 (04/2019)
+ * @version 3.0 (08/2019)
  */
 public class ADQLExecutor {
 
@@ -540,7 +539,7 @@ public class ADQLExecutor {
 		ADQLParser parser = service.getFactory().createADQLParser();
 		if (parser == null) {
 			logger.logTAP(LogLevel.WARNING, null, "PARSING", "No ADQL parser returned by the TAPFactory! The default implementation is used instead.", null);
-			parser = ADQLParserFactory.createDefaultParser();
+			parser = new ADQLParser();
 		}
 
 		// Set the ADQL factory:
